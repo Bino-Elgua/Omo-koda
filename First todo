@@ -1,0 +1,135 @@
+```markdown
+# TASK: Wire fractal.rs into Omo-koda kernel
+
+## CONTEXT
+The Omo-koda codebase is at `~/Omo-koda/` (or wherever you cloned it). 
+The fractal architecture (3-7-21-343) needs to be encoded as a Rust module 
+and wired into the Steward dispatch.
+
+## FILES TO CREATE
+
+### 1. `omokoda-hermetic/src/fractal.rs`
+Create this file with the EXACT content I will provide at the end of this prompt.
+Do not modify it. Do not reformat it.
+
+## FILES TO MODIFY
+
+### 2. `Cargo.toml` (workspace root)
+Add `omokoda-hermetic` as a workspace member so `omokoda-core` can import it:
+
+```toml
+[workspace]
+members = ["omokoda-core", "omokoda-hermetic"]
+```
+
+3. `omokoda-hermetic/src/lib.rs`
+Add at the top:
+
+```rust
+pub mod fractal;
+```
+
+4. `omokoda-core/src/interpreter.rs` (the Steward)
+Make these EXACT changes:
+
+a. Add import at top of file:
+
+```rust
+use omokoda_hermetic::fractal::{Primitive, CYCLE, OPERATIONS};
+```
+
+b. In `Steward::dispatch()`, add this line immediately after `let _ = self;`:
+
+```rust
+let _ = OPERATIONS; // fractal invariant: 21 operations
+```
+
+c. In the `Statement::Birth` arm, add a comment before the logic:
+
+```rust
+// Phase 1-7: BIRTH = 7^1 (fractal depth 1)
+```
+
+d. In the `Statement::Think` arm, add a comment:
+
+```rust
+// Phase 1-7: THINK = 7^2 (fractal depth 2)
+```
+
+e. In the `Statement::Act` arm, add a comment:
+
+```rust
+// Phase 1-7: ACT = 7^3 (fractal depth 3)
+```
+
+f. In `AgentState::birth()`, after `birth_timestamp` is generated, compute and store a ResonanceSignature:
+
+```rust
+let odu_bytes = odu_seed.as_bytes();
+let day = (birth_timestamp % 7) as u8;
+let planet = (odu_bytes[0] % 7) as u8;
+let dimension = 0u8; // Time dimension at birth
+let resonance = omokoda_hermetic::fractal::ResonanceSignature::new(day, planet, dimension);
+// Store in AgentState (add field if needed)
+```
+
+5. `omokoda-core/src/interpreter.rs` — /private enforcement
+In the `Statement::Think { private: true, .. }` arm, add HARD enforcement BEFORE the provider is used:
+
+```rust
+if private {
+    let config = &agent.session.config;
+    let provider_name = config.default_provider.as_str();
+    match provider_name {
+        "webllm" | "ollama" => {}, // allowed
+        _ => return Err(format!(
+            "Private thoughts require a local provider. Current: {}. \
+             Allowed: webllm, ollama. Blocked: openai, anthropic, gemini, etc.",
+            provider_name
+        )),
+    }
+}
+```
+
+This must be HARDCODED — not configurable, not bypassable.
+
+VERIFICATION STEPS
+Run these commands and report results:
+
+```bash
+cd ~/Omo-koda
+cargo test --package omokoda-hermetic fractal_tests
+cargo test --package omokoda-core
+cargo build
+```
+
+Expected:
+- `fractal_tests`: 10 tests pass
+- `omokoda-core`: 35+ tests pass (existing should not break)
+- `cargo build`: zero errors, zero warnings
+
+WHAT NOT TO CHANGE
+- `parser.rs` — frozen, do not touch
+- `receipt.rs` — frozen, do not touch
+- The 3-primitive grammar (birth/think/act) — no additions
+- Any `specs/*.md` files
+
+FRACTAL.RS CONTENT
+[Paste the full fractal.rs code here]
+
+```
+
+---
+
+## Why This Works
+
+The raw `fractal.rs` is **data**. The prompt above is **instructions**. An agent needs:
+
+1. **Where to put it** — exact file paths
+2. **What to change** — exact locations in existing files
+3. **What NOT to change** — guardrails
+4. **How to verify** — test commands with expected output
+
+Without these, the agent will create `fractal.rs` in the wrong place, not wire it, and tell you it's done.
+
+---
